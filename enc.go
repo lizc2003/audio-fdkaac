@@ -1,8 +1,7 @@
 package fdkaac
 
 /*
-#cgo pkg-config: fdk-aac
-#include <fdk-aac/aacenc_lib.h>
+#include "deps/include/aacenc_lib.h"
 
 AACENC_ERROR aacEncEncodeWrapped(const HANDLE_AACENCODER hAacEncoder,
 			void* in, int inLen, int sampleBitDepth,

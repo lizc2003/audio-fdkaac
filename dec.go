@@ -6,8 +6,7 @@ import (
 )
 
 /*
-#cgo pkg-config: fdk-aac
-#include <fdk-aac/aacdecoder_lib.h>
+#include "deps/include/aacdecoder_lib.h"
 
 AAC_DECODER_ERROR aacDecoder_ConfigRawWrapped(HANDLE_AACDECODER self,
 			UCHAR *conf, const UINT length) {

@@ -1,6 +1,6 @@
-module github.com/qrtc/fdk-aac-go
+module github.com/lizc2003/fdk-aac-go
 
-go 1.17
+go 1.24.2
 
 require (
 	github.com/onsi/ginkgo/v2 v2.12.0
