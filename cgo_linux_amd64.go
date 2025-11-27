@@ -3,5 +3,5 @@
 package fdkaac
 
 // #cgo LDFLAGS: -L${SRCDIR}/deps/linux_amd64
-// #cgo LDFLAGS: -lfdk-aac
+// #cgo LDFLAGS: -lfdk-aac -lm
 import "C"
