@@ -94,7 +94,7 @@ func TestAacEncoderAdvance(t *testing.T) {
 				TransMux:    TtMp4Adts,
 				SampleRate:  44100,
 				MaxChannels: 2,
-				Bitrate:     64000,
+				Bitrate:     128000,
 			})
 			if err != nil {
 				t.Fatalf("CreateAacEncoder failed: %v", err)
@@ -130,8 +130,8 @@ func TestAacEncoderAdvance(t *testing.T) {
 			frameCount += nFrames
 			totalBytes += written
 
-			if totalBytes != 113000 {
-				t.Errorf("expected %d bytes, got %d", 113000, totalBytes)
+			if totalBytes != 224919 {
+				t.Errorf("expected %d bytes, got %d", 224919, totalBytes)
 			}
 			if frameCount != 604 {
 				t.Errorf("expected %d frames, got %d", 604, frameCount)
