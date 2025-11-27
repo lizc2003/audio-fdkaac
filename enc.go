@@ -178,6 +178,7 @@ type AacEncoder struct {
 	prevDataBuffer []byte
 }
 
+// Encode
 func (enc *AacEncoder) Encode(in, out []byte) (n int, nFrames int, err error) {
 	if enc == nil || enc.ph == nil {
 		return 0, 0, errors.New("encoder not initialized")
@@ -266,8 +267,7 @@ func (enc *AacEncoder) Flush(out []byte) (n int, nFrames int, err error) {
 	var outPtr unsafe.Pointer
 
 	if len(enc.prevDataBuffer) > 0 {
-		var inPtr unsafe.Pointer
-		inPtr = unsafe.Pointer(&enc.prevDataBuffer[0])
+		inPtr := unsafe.Pointer(&enc.prevDataBuffer[0])
 		outPtr = unsafe.Pointer(&out[0])
 		errNo := C.aacEncEncodeWrapped(enc.ph,
 			inPtr, C.int(len(enc.prevDataBuffer)), C.int(SampleBitDepth),
@@ -320,7 +320,7 @@ func (enc *AacEncoder) Close() error {
 
 func (enc *AacEncoder) EstimateOutBufBytes(inBytes int) int {
 	// The maximum packet size is 768 bytes per channel.
-	nFrames := inBytes/enc.FrameSize + 1 + 3
+	nFrames := inBytes/enc.FrameSize + 1 + 2
 	return nFrames * enc.MaxOutBufBytes
 }
 
