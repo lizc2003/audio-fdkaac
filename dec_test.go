@@ -6,7 +6,7 @@ import (
 
 func TestAacDecoder(t *testing.T) {
 	t.Run("Decoder create and close", func(t *testing.T) {
-		decoder, err := CreateAccDecoder(nil)
+		decoder, err := CreateAacDecoder(nil)
 		if err != nil {
 			t.Fatalf("CreateAccDecoder failed: %v", err)
 		}
@@ -24,7 +24,7 @@ func TestAacDecoder(t *testing.T) {
 	})
 
 	t.Run("Decoder config raw", func(t *testing.T) {
-		decoder, err := CreateAccDecoder(&AacDecoderConfig{
+		decoder, err := CreateAacDecoder(&AacDecoderConfig{
 			TransportFmt: TtMp4Raw,
 		})
 		if err != nil {
@@ -60,7 +60,7 @@ func TestAacDecoder(t *testing.T) {
 	})
 
 	t.Run("Decoder decode adts", func(t *testing.T) {
-		decoder, err := CreateAccDecoder(&AacDecoderConfig{
+		decoder, err := CreateAacDecoder(&AacDecoderConfig{
 			TransportFmt: TtMp4Adts,
 		})
 		if err != nil {
@@ -117,7 +117,7 @@ func TestAacDecoder(t *testing.T) {
 	})
 
 	t.Run("Decoder decode raw", func(t *testing.T) {
-		decoder, err := CreateAccDecoder(&AacDecoderConfig{
+		decoder, err := CreateAacDecoder(&AacDecoderConfig{
 			TransportFmt: TtMp4Raw,
 		})
 		if err != nil {

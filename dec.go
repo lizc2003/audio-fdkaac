@@ -279,7 +279,7 @@ func (dec *AacDecoder) DecodeFrame(in, out []byte) (n int, err error) {
 	if len(out) == 0 {
 		return 0, errors.New("output buffer is empty")
 	}
-	
+
 	var errNo C.AAC_DECODER_ERROR = C.AAC_DEC_OK
 	// Fill
 	var inPtr *C.uchar
@@ -380,7 +380,7 @@ func (dec *AacDecoder) Close() error {
 }
 
 // CreateAccDecoder
-func CreateAccDecoder(config *AacDecoderConfig) (*AacDecoder, error) {
+func CreateAacDecoder(config *AacDecoderConfig) (*AacDecoder, error) {
 	var errNo C.AAC_DECODER_ERROR = C.AAC_DEC_OK
 	dec := &AacDecoder{
 		AacDecoderConfig: *populateDecConfig(config),

@@ -27,20 +27,18 @@ package main
 import (
 	"fmt"
 
-	fdkaac "github.com/qrtc/fdk-aac-go"
+	fdkaac "github.com/lizc2003/fdk-aac-go"
 )
 
 func main() {
-	decoder, err := fdkaac.CreateAccDecoder(&fdkaac.AacDecoderConfig{
+	decoder, err := fdkaac.CreateAacDecoder(&fdkaac.AacDecoderConfig{
 		TransportFmt: fdkaac.TtMp4Adts,
 	})
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	defer func() {
-		decoder.Close()
-	}()
+	defer decoder.Close()
 
 	inBuf := []byte{
         // AAC frame
@@ -64,30 +62,28 @@ package main
 import (
 	"fmt"
 
-	fdkaac "github.com/qrtc/fdk-aac-go"
+	fdkaac "github.com/lizc2003/fdk-aac-go"
 )
 
 func main() {
-	encoder, err := fdkaac.CreateAccEncoder(&fdkaac.AacEncoderConfig{
-		TransMux:    TtMp4Adts,
-		AOT:         AotAacLc,
+	encoder, err := fdkaac.CreateAacEncoder(&fdkaac.AacEncoderConfig{
+		TransMux:    fdkaac.TtMp4Adts,
 		SampleRate:  44100,
 		MaxChannels: 2,
+		Bitrate:     128000,
 	})
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	defer func() {
-		encoder.Close()
-	}()
+	defer encoder.Close()
 
 	inBuf := []byte{
 		// PCM bytes
 	}
 	outBuf := make([]byte, 4096)
 
-	n, err := encoder.Encode(inBuf, outBuf)
+	n, _, err := encoder.Encode(inBuf, outBuf)
 	if err != nil {
 		fmt.Println(err)
 		return
