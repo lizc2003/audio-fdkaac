@@ -45,7 +45,7 @@ func main() {
     }
 	outBuf := make([]byte, 4096)
 
-	n, err := decoder.DecodeFrame(inBuf, outBuf)
+	n, _, _, err := decoder.Decode(inBuf, outBuf)
 	if err != nil {
 		fmt.Println(err)
 		return

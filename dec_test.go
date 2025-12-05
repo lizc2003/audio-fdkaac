@@ -38,7 +38,7 @@ func TestAacDecoder(t *testing.T) {
 			t.Errorf("ConfigRaw failed: %v", err)
 		}
 
-		info, err := decoder.GetStreamInfo()
+		info, err := decoder.GetRawStreamInfo()
 		if err != nil {
 			t.Errorf("GetStreamInfo failed: %v", err)
 		}
@@ -68,48 +68,48 @@ func TestAacDecoder(t *testing.T) {
 		}
 		defer decoder.Close()
 
-		outBuf := make([]byte, 4096)
+		outBuf := make([]byte, decoder.EstimateOutBufBytes())
 
-		n, err := decoder.DecodeFrame(AAC0, outBuf)
+		n, _, _, err := decoder.Decode(AAC0, outBuf)
 		if err != nil {
-			t.Errorf("DecodeFrame failed: %v", err)
+			t.Errorf("Decode failed: %v", err)
 		}
 		if n != 4096 {
 			t.Errorf("expected decoded bytes 4096, got %d", n)
 		}
 
-		n, err = decoder.DecodeFrame(AAC1[0:9], outBuf)
-		if err != DecNotEnoughBits {
-			t.Errorf("expected error DecNotEnoughBits, got %v", err)
+		n, _, _, err = decoder.Decode(AAC1[0:9], outBuf)
+		if err != nil {
+			t.Errorf("expected error nil, got %v", err)
 		}
 		if n != 0 {
 			t.Errorf("expected decoded bytes 0, got %d", n)
 		}
 
-		n, err = decoder.DecodeFrame(AAC1[9:], outBuf)
+		n, _, _, err = decoder.Decode(AAC1[9:], outBuf)
 		if err != nil {
-			t.Errorf("DecodeFrame failed: %v", err)
+			t.Errorf("Decode failed: %v", err)
 		}
 		if n != 4096 {
 			t.Errorf("expected decoded bytes 4096, got %d", n)
 		}
 
-		n, err = decoder.DecodeFrame(AAC2[0:9], outBuf)
-		if err != DecNotEnoughBits {
-			t.Errorf("expected error DecNotEnoughBits, got %v", err)
+		n, _, _, err = decoder.Decode(AAC2[0:9], outBuf)
+		if err != nil {
+			t.Errorf("expected error nil, got %v", err)
 		}
 		if n != 0 {
 			t.Errorf("expected decoded bytes 0, got %d", n)
 		}
 
-		err = decoder.Flush()
+		err = decoder.ClearBuffer()
 		if err != nil {
-			t.Errorf("Flush failed: %v", err)
+			t.Errorf("ClearBuffer failed: %v", err)
 		}
 
-		n, err = decoder.DecodeFrame(AAC2, outBuf)
+		n, _, _, err = decoder.Decode(AAC2, outBuf)
 		if err != nil {
-			t.Errorf("DecodeFrame failed: %v", err)
+			t.Errorf("Decode failed: %v", err)
 		}
 		if n != 4096 {
 			t.Errorf("expected decoded bytes 4096, got %d", n)
@@ -131,7 +131,7 @@ func TestAacDecoder(t *testing.T) {
 			t.Errorf("ConfigRaw failed: %v", err)
 		}
 
-		info, err := decoder.GetStreamInfo()
+		info, err := decoder.GetRawStreamInfo()
 		if err != nil {
 			t.Errorf("GetStreamInfo failed: %v", err)
 		}
@@ -139,27 +139,27 @@ func TestAacDecoder(t *testing.T) {
 			t.Fatal("info should not be nil")
 		}
 
-		outBuf := make([]byte, 4096)
+		outBuf := make([]byte, decoder.EstimateOutBufBytes())
 
-		n, err := decoder.DecodeFrame(AAC0[7:], outBuf)
+		n, _, _, err := decoder.Decode(AAC0[7:], outBuf)
 		if err != nil {
-			t.Errorf("DecodeFrame failed: %v", err)
+			t.Errorf("Decode failed: %v", err)
 		}
 		if n != 4096 {
 			t.Errorf("expected decoded bytes 4096, got %d", n)
 		}
 
-		n, err = decoder.DecodeFrame(AAC1[7:], outBuf)
+		n, _, _, err = decoder.Decode(AAC1[7:], outBuf)
 		if err != nil {
-			t.Errorf("DecodeFrame failed: %v", err)
+			t.Errorf("Decode failed: %v", err)
 		}
 		if n != 4096 {
 			t.Errorf("expected decoded bytes 4096, got %d", n)
 		}
 
-		n, err = decoder.DecodeFrame(AAC2[7:], outBuf)
+		n, _, _, err = decoder.Decode(AAC2[7:], outBuf)
 		if err != nil {
-			t.Errorf("DecodeFrame failed: %v", err)
+			t.Errorf("Decode failed: %v", err)
 		}
 		if n != 4096 {
 			t.Errorf("expected decoded bytes 4096, got %d", n)

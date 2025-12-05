@@ -159,7 +159,7 @@ type EncInfo struct {
 	// depending on audio object type configuration.
 	FrameLength int
 	// Bytes per frame, including all channels
-	FrameSize int
+	FrameBytes int
 	// Codec delay in PCM samples/channel.
 	NDelay int
 	// Codec delay in PCM samples/channel.
@@ -194,7 +194,7 @@ func (enc *AacEncoder) Encode(in, out []byte) (n int, nFrames int, err error) {
 		return 0, 0, errors.New("output buffer is too small")
 	}
 
-	frameSize := enc.FrameSize
+	frameSize := enc.FrameBytes
 	var nWrite C.int
 	var inPtr, outPtr unsafe.Pointer
 
@@ -320,7 +320,7 @@ func (enc *AacEncoder) Close() error {
 
 func (enc *AacEncoder) EstimateOutBufBytes(inBytes int) int {
 	// The maximum packet size is 768 bytes per channel.
-	nFrames := inBytes/enc.FrameSize + 1 + 2
+	nFrames := inBytes/enc.FrameBytes + 1 + 2
 	return nFrames * enc.MaxOutBufBytes
 }
 
@@ -466,7 +466,7 @@ func CreateAacEncoder(config *AacEncoderConfig) (enc *AacEncoder, err error) {
 		return nil, getEncError(errNo)
 	}
 
-	enc.prevDataBuffer = make([]byte, 0, enc.FrameSize)
+	enc.prevDataBuffer = make([]byte, 0, enc.FrameBytes)
 	return enc, nil
 }
 
@@ -484,7 +484,7 @@ func (enc *AacEncoder) getInfo() C.AACENC_ERROR {
 	enc.NDelay = int(info.nDelay)
 	enc.NDelayCore = int(info.nDelayCore)
 	enc.ConfBuf = C.GoBytes(unsafe.Pointer(&info.confBuf[0]), C.int(info.confSize))
-	enc.FrameSize = enc.FrameLength * enc.InputChannels * SampleBitDepth / 8
+	enc.FrameBytes = enc.FrameLength * enc.InputChannels * SampleBitDepth / 8
 	return C.AACENC_OK
 }
 
