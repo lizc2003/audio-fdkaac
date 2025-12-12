@@ -123,7 +123,6 @@ func DecodeToWav(aacStream io.Reader, writer io.WriteSeeker, config *AacDecoderC
 					}
 				}
 
-				// Success decode
 				if _, wErr := writer.Write(pcmBuf[:decodedN]); wErr != nil {
 					return 0, 0, 0, wErr
 				}
@@ -150,9 +149,8 @@ func DecodeToWav(aacStream io.Reader, writer io.WriteSeeker, config *AacDecoderC
 		return 0, 0, 0, errors.New("no audio frames decoded")
 	}
 
-	// Update WAV header if seeker
+	// Update WAV header
 	if _, err := writer.Seek(0, io.SeekStart); err != nil {
-		// Can't seek, maybe log warning? return error?
 		// If we can't seek, the file will have invalid header.
 		return 0, 0, 0, fmt.Errorf("seek to start failed: %w", err)
 	}
@@ -163,9 +161,10 @@ func DecodeToWav(aacStream io.Reader, writer io.WriteSeeker, config *AacDecoderC
 		return 0, 0, 0, fmt.Errorf("write real header failed: %w", err)
 	}
 
-	// Seek back to end? Not strictly necessary but good practice.
+	// Not strictly necessary but good practice.
 	writer.Seek(0, io.SeekEnd)
-	return totalBytes, totalFrames * info.FrameLength, info.SampleRate, nil
+
+	return totalBytes + WavHeaderSize, totalFrames * info.FrameLength, info.SampleRate, nil
 }
 
 func GenerateWavHeader(pcmSize int, sampleRate int, numChannels int, bitsPerSample int) []byte {
