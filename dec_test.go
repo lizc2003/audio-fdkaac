@@ -65,7 +65,7 @@ func TestAacDecoder(t *testing.T) {
 		}
 		defer decoder.Close()
 
-		outBuf := make([]byte, decoder.EstimateOutBufBytes())
+		outBuf := make([]byte, decoder.EstimateOutBufBytes(EstimateFrames))
 
 		n, err := decoder.Decode(AAC0, outBuf)
 		if err != nil {
@@ -136,7 +136,7 @@ func TestAacDecoder(t *testing.T) {
 			t.Fatal("info should not be nil")
 		}
 
-		outBuf := make([]byte, decoder.EstimateOutBufBytes())
+		outBuf := make([]byte, decoder.EstimateOutBufBytes(EstimateFrames))
 
 		n, err := decoder.Decode(AAC0[7:], outBuf)
 		if err != nil {

@@ -169,14 +169,15 @@ type EncInfo struct {
 	ConfBuf []byte
 }
 
-// AAC Encoder
 type Encoder struct {
 	ph C.HANDLE_AACENCODER
 	EncInfo
 	frameData []byte
 }
 
-// Encode
+// Encode encodes PCM audio data to AAC format.
+// It accepts variable-length input data and handles internal buffering automatically.
+// Returns the number of encoded bytes written to output buffer, number of frames encoded, and any error.
 func (enc *Encoder) Encode(in, out []byte) (n int, nFrames int, err error) {
 	szIn := len(in)
 	szOut := len(out)
@@ -250,7 +251,8 @@ func (enc *Encoder) Encode(in, out []byte) (n int, nFrames int, err error) {
 	return n, nFrames, nil
 }
 
-// Flush
+// Flush encodes any remaining buffered PCM data and flushes the encoder's internal state.
+// This should be called at the end of encoding to ensure all audio data is encoded.
 func (enc *Encoder) Flush(out []byte) (n int, nFrames int, err error) {
 	szOut := len(out)
 	if szOut < enc.EstimateOutBufBytes(0) {
@@ -269,7 +271,7 @@ func (enc *Encoder) Flush(out []byte) (n int, nFrames int, err error) {
 		if errNo != 0 {
 			return 0, 0, getEncError(errNo)
 		}
-		enc.frameData = enc.frameData[:0]
+		enc.frameData = nil
 
 		n = int(nWrite)
 		if n > 0 {
@@ -302,16 +304,20 @@ func (enc *Encoder) Flush(out []byte) (n int, nFrames int, err error) {
 	}
 }
 
-// Close
+// Close releases all resources associated with the encoder.
 func (enc *Encoder) Close() {
 	if enc.ph != nil {
 		C.aacEncClose(&enc.ph)
 		enc.ph = nil
+		enc.frameData = nil
 	}
 }
 
+// EstimateOutBufBytes estimates the required output buffer size for given input size.
+// This calculation includes extra space for encoder delay and partial frames.
 func (enc *Encoder) EstimateOutBufBytes(inBytes int) int {
 	// The maximum packet size is 768 bytes per channel.
+	// Add 1 for partial frame, 2 for encoder delay
 	nFrames := inBytes/enc.FrameBytes + 1 + 2
 	return nFrames * enc.MaxOutBufBytes
 }

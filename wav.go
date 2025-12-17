@@ -18,7 +18,7 @@ const (
 func EncodeFromWav(wavStream io.Reader, writer io.Writer, config *EncoderConfig) (totalBytes int, totalFrames int, sampleRate int, err error) {
 	pcmSize, sampleRate, numChannels, bitsPerSample, err := ParseWavHeader(wavStream)
 	if err != nil {
-		return 0, 0, 0, err
+		return 0, 0, 0, fmt.Errorf("parse WAV header failed: %w", err)
 	}
 	if bitsPerSample != SampleBitDepth {
 		return 0, 0, 0, fmt.Errorf("unsupported bits per sample: %d (only 16-bit supported)", bitsPerSample)
@@ -91,7 +91,7 @@ func DecodeToWav(aacStream io.Reader, writer io.WriteSeeker, config *DecoderConf
 	}
 	defer decoder.Close()
 
-	pcmBuf := make([]byte, decoder.EstimateOutBufBytes())
+	pcmBuf := make([]byte, decoder.EstimateOutBufBytes(EstimateFrames))
 	chunk := make([]byte, 2048)
 
 	for {

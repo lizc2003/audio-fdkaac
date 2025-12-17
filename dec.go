@@ -49,6 +49,10 @@ AAC_DECODER_ERROR aacDecoder_DecodeWrapped(HANDLE_AACDECODER self,
 */
 import "C"
 
+const (
+	EstimateFrames = 10
+)
+
 var decErrors = [...]error{
 	C.AAC_DEC_OK:                            nil,
 	C.AAC_DEC_OUT_OF_MEMORY:                 errors.New("heap returned NULL pointer or output buffer is invalid"),
@@ -254,129 +258,7 @@ type Decoder struct {
 	remainData []byte
 }
 
-func (dec *Decoder) EstimateOutBufBytes() int {
-	// 1 frame: 1024 samples * 8 channels * 2 bytes = 16384 bytes
-	return (1024 * 8 * 2) * 10 // 10 frames
-}
-
-// Decode
-func (dec *Decoder) Decode(in, out []byte) (n int, err error) {
-	szIn := len(in)
-	szOut := len(out)
-	if szIn == 0 {
-		return 0, errors.New("input buffer is empty")
-	}
-	if szOut < dec.EstimateOutBufBytes() {
-		return 0, errors.New("output buffer size is not enough")
-	}
-
-	if len(dec.remainData) > 0 {
-		in = append(dec.remainData, in...)
-		szIn = len(in)
-		dec.remainData = nil
-	}
-
-	inPtr := (*C.uchar)(unsafe.Pointer(&in[0]))
-	inLen := C.uint(szIn)
-	bytesValid := inLen
-	outPtr := (*C.uchar)(unsafe.Pointer(&out[0]))
-	outLen := C.INT(szOut)
-	bytesDecoded := C.uint(0)
-
-	if errNo := C.aacDecoder_DecodeWrapped(dec.ph, inPtr, inLen, outPtr, outLen, &bytesDecoded, &bytesValid); errNo != C.AAC_DEC_OK {
-		return 0, getDecError(errNo)
-	}
-
-	if bytesValid > 0 {
-		dec.remainData = append(dec.remainData, in[szIn-int(bytesValid):]...)
-	}
-
-	if dec.info == nil {
-		if dec.info, err = getStreamInfo(dec.ph); err != nil {
-			return 0, err
-		}
-	}
-
-	return int(bytesDecoded), nil
-}
-
-// ClearBuffer
-func (dec *Decoder) ClearBuffer() error {
-	return getDecError(C.aacDecoder_SetParam(dec.ph, C.AAC_TPDEC_CLEAR_BUFFER, C.int(1)))
-}
-
-// Close
-func (dec *Decoder) Close() {
-	if dec.ph != nil {
-		C.aacDecoder_Close(dec.ph)
-		dec.ph = nil
-	}
-}
-
-// ConfigRaw
-func (dec *Decoder) ConfigRaw(conf []byte) error {
-	if len(conf) == 0 {
-		return errors.New("raw config should not be empty")
-	}
-	confPtr := (*C.uchar)(unsafe.Pointer(&conf[0]))
-	length := C.uint(len(conf))
-	errNo := C.aacDecoder_ConfigRawWrapped(dec.ph, confPtr, length)
-	if errNo != C.AAC_DEC_OK {
-		return getDecError(errNo)
-	}
-	return nil
-}
-
-// GetStreamInfo
-func (dec *Decoder) GetStreamInfo() (*StreamInfo, error) {
-	if dec.info == nil {
-		return nil, errors.New("decoder not decoded first frame")
-	}
-	return dec.info, nil
-}
-
-// GetStreamInfo
-func (dec *Decoder) GetRawStreamInfo() (*StreamInfo, error) {
-	return getStreamInfo(dec.ph)
-}
-
-func getStreamInfo(ph C.HANDLE_AACDECODER) (*StreamInfo, error) {
-	originInfo := C.aacDecoder_GetStreamInfo(ph)
-	if originInfo == nil {
-		return nil, errors.New("get stream info failed")
-	}
-
-	si := &StreamInfo{
-		SampleRate:          int(originInfo.sampleRate),
-		FrameLength:         int(originInfo.frameSize),
-		NumChannels:         int(originInfo.numChannels),
-		AacSampleRate:       int(originInfo.aacSampleRate),
-		Profile:             int(originInfo.profile),
-		AOT:                 AudioObjectType(originInfo.aot),
-		ChannelConfig:       int(originInfo.channelConfig),
-		BitRate:             int(originInfo.bitRate),
-		AacSamplesPerFrame:  int(originInfo.aacSamplesPerFrame),
-		AacNumChannels:      int(originInfo.aacNumChannels),
-		ExtAot:              AudioObjectType(originInfo.extAot),
-		ExtSamplingRate:     int(originInfo.extSamplingRate),
-		OutputDelay:         int(originInfo.outputDelay),
-		Flags:               uint(originInfo.flags),
-		EpConfig:            int8(originInfo.epConfig),
-		NumLostAccessUnits:  int64(originInfo.numLostAccessUnits),
-		NumTotalBytes:       int64(originInfo.numTotalBytes),
-		NumBadBytes:         int64(originInfo.numBadBytes),
-		NumTotalAccessUnits: int64(originInfo.numTotalAccessUnits),
-		NumBadAccessUnits:   int64(originInfo.numBadAccessUnits),
-		DrcProgRefLev:       int8(originInfo.drcProgRefLev),
-		DrcPresMode:         int8(originInfo.drcPresMode),
-	}
-
-	// fdk-aac only supports 16 bits (2 bytes) depth.
-	si.FrameBytes = si.FrameLength * si.NumChannels * SampleBitDepth / 8
-	return si, nil
-}
-
-// CreateAccDecoder
+// NewDecoder
 func NewDecoder(config *DecoderConfig) (*Decoder, error) {
 	config = populateDecConfig(config)
 
@@ -509,6 +391,140 @@ func NewDecoder(config *DecoderConfig) (*Decoder, error) {
 	}
 
 	return dec, nil
+}
+
+// EstimateOutBufBytes returns the recommended output buffer size for decoding.
+// The buffer should be large enough to hold multiple AAC frames.
+func (dec *Decoder) EstimateOutBufBytes(nFrames int) int {
+	// 1 frame: 1024 samples * 8 channels * 2 bytes = 16384 bytes
+	return (1024 * 8 * 2) * nFrames
+}
+
+// Decode decodes AAC audio data to PCM format.
+// It handles partial frames internally and may buffer incomplete data.
+// Returns the number of decoded PCM bytes written to output buffer.
+func (dec *Decoder) Decode(in, out []byte) (n int, err error) {
+	szIn := len(in)
+	szOut := len(out)
+	if szIn == 0 {
+		return 0, errors.New("input buffer is empty")
+	}
+	if szOut < dec.EstimateOutBufBytes(EstimateFrames) {
+		return 0, errors.New("output buffer size is not enough")
+	}
+
+	if len(dec.remainData) > 0 {
+		in = append(dec.remainData, in...)
+		szIn = len(in)
+		dec.remainData = nil
+	}
+
+	inPtr := (*C.uchar)(unsafe.Pointer(&in[0]))
+	inLen := C.uint(szIn)
+	bytesValid := inLen
+	outPtr := (*C.uchar)(unsafe.Pointer(&out[0]))
+	outLen := C.INT(szOut)
+	bytesDecoded := C.uint(0)
+
+	if errNo := C.aacDecoder_DecodeWrapped(dec.ph, inPtr, inLen, outPtr, outLen, &bytesDecoded, &bytesValid); errNo != C.AAC_DEC_OK {
+		return 0, getDecError(errNo)
+	}
+
+	if bytesValid > 0 {
+		dec.remainData = append(dec.remainData, in[szIn-int(bytesValid):]...)
+	}
+
+	// Get stream info after first successful decode
+	if dec.info == nil && bytesDecoded > 0 {
+		if dec.info, err = getStreamInfo(dec.ph); err != nil {
+			return 0, err
+		}
+	}
+
+	return int(bytesDecoded), nil
+}
+
+// ClearBuffer clears the decoder's internal buffer.
+// This is useful when seeking or switching between streams.
+func (dec *Decoder) ClearBuffer() error {
+	dec.remainData = nil
+	return getDecError(C.aacDecoder_SetParam(dec.ph, C.AAC_TPDEC_CLEAR_BUFFER, C.int(1)))
+}
+
+// Close releases all resources associated with the decoder.
+func (dec *Decoder) Close() {
+	if dec.ph != nil {
+		C.aacDecoder_Close(dec.ph)
+		dec.ph = nil
+		dec.remainData = nil
+		dec.info = nil
+	}
+}
+
+// ConfigRaw configures the decoder with raw AAC configuration data (AudioSpecificConfig).
+// This is required when using raw AAC transport format (TtMp4Raw).
+func (dec *Decoder) ConfigRaw(conf []byte) error {
+	if len(conf) == 0 {
+		return errors.New("raw config should not be empty")
+	}
+	confPtr := (*C.uchar)(unsafe.Pointer(&conf[0]))
+	length := C.uint(len(conf))
+	errNo := C.aacDecoder_ConfigRawWrapped(dec.ph, confPtr, length)
+	if errNo != C.AAC_DEC_OK {
+		return getDecError(errNo)
+	}
+	return nil
+}
+
+// GetStreamInfo returns stream information after at least one frame has been decoded.
+// Returns an error if no frames have been decoded yet.
+func (dec *Decoder) GetStreamInfo() (*StreamInfo, error) {
+	if dec.info == nil {
+		return nil, errors.New("decoder has not decoded first frame yet")
+	}
+	return dec.info, nil
+}
+
+// GetRawStreamInfo retrieves stream information directly from the decoder.
+// This can be called after ConfigRaw() without decoding any frames.
+func (dec *Decoder) GetRawStreamInfo() (*StreamInfo, error) {
+	return getStreamInfo(dec.ph)
+}
+
+func getStreamInfo(ph C.HANDLE_AACDECODER) (*StreamInfo, error) {
+	originInfo := C.aacDecoder_GetStreamInfo(ph)
+	if originInfo == nil {
+		return nil, errors.New("get stream info failed")
+	}
+
+	si := &StreamInfo{
+		SampleRate:          int(originInfo.sampleRate),
+		FrameLength:         int(originInfo.frameSize),
+		NumChannels:         int(originInfo.numChannels),
+		AacSampleRate:       int(originInfo.aacSampleRate),
+		Profile:             int(originInfo.profile),
+		AOT:                 AudioObjectType(originInfo.aot),
+		ChannelConfig:       int(originInfo.channelConfig),
+		BitRate:             int(originInfo.bitRate),
+		AacSamplesPerFrame:  int(originInfo.aacSamplesPerFrame),
+		AacNumChannels:      int(originInfo.aacNumChannels),
+		ExtAot:              AudioObjectType(originInfo.extAot),
+		ExtSamplingRate:     int(originInfo.extSamplingRate),
+		OutputDelay:         int(originInfo.outputDelay),
+		Flags:               uint(originInfo.flags),
+		EpConfig:            int8(originInfo.epConfig),
+		NumLostAccessUnits:  int64(originInfo.numLostAccessUnits),
+		NumTotalBytes:       int64(originInfo.numTotalBytes),
+		NumBadBytes:         int64(originInfo.numBadBytes),
+		NumTotalAccessUnits: int64(originInfo.numTotalAccessUnits),
+		NumBadAccessUnits:   int64(originInfo.numBadAccessUnits),
+		DrcProgRefLev:       int8(originInfo.drcProgRefLev),
+		DrcPresMode:         int8(originInfo.drcPresMode),
+	}
+
+	// fdk-aac only supports 16 bits (2 bytes) depth.
+	si.FrameBytes = si.FrameLength * si.NumChannels * SampleBitDepth / 8
+	return si, nil
 }
 
 func populateDecConfig(c *DecoderConfig) *DecoderConfig {

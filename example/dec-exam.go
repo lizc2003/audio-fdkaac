@@ -24,7 +24,7 @@ func main() {
 	}
 	defer aacFile.Close()
 
-	pcmBuf := make([]byte, decoder.EstimateOutBufBytes())
+	pcmBuf := make([]byte, decoder.EstimateOutBufBytes(fdkaac.EstimateFrames))
 	totalBytes := 0
 	chunk := make([]byte, 2048)
 
