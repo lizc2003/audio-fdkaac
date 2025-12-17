@@ -8,7 +8,7 @@ import (
 
 func TestAacEncoder(t *testing.T) {
 	t.Run("Encoder create and close", func(t *testing.T) {
-		encoder, err := CreateAacEncoder(&AacEncoderConfig{
+		encoder, err := NewEncoder(&EncoderConfig{
 			TransMux:    TtMp4Adts,
 			SampleRate:  44100,
 			MaxChannels: 2,
@@ -35,17 +35,14 @@ func TestAacEncoder(t *testing.T) {
 			}
 		}
 
-		err = encoder.Close()
-		if err != nil {
-			t.Errorf("Close failed: %v", err)
-		}
+		encoder.Close()
 		if encoder.ph != nil {
 			t.Error("encoder.ph should be nil after close")
 		}
 	})
 
 	t.Run("Encode", func(t *testing.T) {
-		encoder, err := CreateAacEncoder(&AacEncoderConfig{
+		encoder, err := NewEncoder(&EncoderConfig{
 			TransMux:    TtMp4Adts,
 			SampleRate:  44100,
 			MaxChannels: 2,
@@ -90,7 +87,7 @@ func TestAacEncoderAdvance(t *testing.T) {
 		go func(chunkSize int) {
 			defer waitGroup.Done()
 
-			encoder, err := CreateAacEncoder(&AacEncoderConfig{
+			encoder, err := NewEncoder(&EncoderConfig{
 				TransMux:    TtMp4Adts,
 				SampleRate:  44100,
 				MaxChannels: 2,

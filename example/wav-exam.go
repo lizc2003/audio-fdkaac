@@ -26,7 +26,7 @@ func encodeFromWav() {
 	}
 	defer out.Close()
 
-	totalBytes, totalFrames, sampleRate, err := fdkaac.EncodeFromWav(in, out, &fdkaac.AacEncoderConfig{
+	totalBytes, totalFrames, sampleRate, err := fdkaac.EncodeFromWav(in, out, &fdkaac.EncoderConfig{
 		TransMux: fdkaac.TtMp4Adts,
 		Bitrate:  128000,
 	})
@@ -34,7 +34,7 @@ func encodeFromWav() {
 		fmt.Println(err)
 		return
 	}
-	fmt.Printf("totalBytes: %d, totalFrames: %d, sampleRate: %d\n", totalBytes, totalFrames, sampleRate)
+	fmt.Printf("encoded %d bytes, total frames: %d, sample rate: %d\n", totalBytes, totalFrames, sampleRate)
 }
 
 func decodeToWav() {
@@ -52,7 +52,7 @@ func decodeToWav() {
 	}
 	defer wavFile.Close()
 
-	config := &fdkaac.AacDecoderConfig{
+	config := &fdkaac.DecoderConfig{
 		TransportFmt: fdkaac.TtMp4Adts,
 	}
 
@@ -62,5 +62,5 @@ func decodeToWav() {
 		return
 	}
 
-	fmt.Printf("Decoded %d bytes of PCM data at %d Hz, totalSamples: %d\n", totalBytes, sampleRate, totalSamples)
+	fmt.Printf("decoded %d bytes, total samples: %d, sample rate: %d\n", totalBytes, totalSamples, sampleRate)
 }

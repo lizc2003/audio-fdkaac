@@ -98,7 +98,7 @@ const (
 )
 
 // AAC Encoder Config
-type AacEncoderConfig struct {
+type EncoderConfig struct {
 	// Number of channels to be allocated.
 	MaxChannels int
 	// Audio object type.
@@ -170,7 +170,7 @@ type EncInfo struct {
 }
 
 // AAC Encoder
-type AacEncoder struct {
+type Encoder struct {
 	// private handler
 	ph C.HANDLE_AACENCODER
 	// info
@@ -179,11 +179,7 @@ type AacEncoder struct {
 }
 
 // Encode
-func (enc *AacEncoder) Encode(in, out []byte) (n int, nFrames int, err error) {
-	if enc == nil || enc.ph == nil {
-		return 0, 0, errors.New("encoder not initialized")
-	}
-
+func (enc *Encoder) Encode(in, out []byte) (n int, nFrames int, err error) {
 	szIn := len(in)
 	szOut := len(out)
 
@@ -257,7 +253,7 @@ func (enc *AacEncoder) Encode(in, out []byte) (n int, nFrames int, err error) {
 }
 
 // Flush
-func (enc *AacEncoder) Flush(out []byte) (n int, nFrames int, err error) {
+func (enc *Encoder) Flush(out []byte) (n int, nFrames int, err error) {
 	szOut := len(out)
 	if szOut < enc.EstimateOutBufBytes(0) {
 		return 0, 0, errors.New("output buffer is too small")
@@ -309,23 +305,21 @@ func (enc *AacEncoder) Flush(out []byte) (n int, nFrames int, err error) {
 }
 
 // Close
-func (enc *AacEncoder) Close() error {
-	if enc == nil || enc.ph == nil {
-		return nil
+func (enc *Encoder) Close() {
+	if enc.ph != nil {
+		C.aacEncClose(&enc.ph)
+		enc.ph = nil
 	}
-	err := getEncError(C.aacEncClose(&enc.ph))
-	enc.ph = nil
-	return err
 }
 
-func (enc *AacEncoder) EstimateOutBufBytes(inBytes int) int {
+func (enc *Encoder) EstimateOutBufBytes(inBytes int) int {
 	// The maximum packet size is 768 bytes per channel.
 	nFrames := inBytes/enc.FrameBytes + 1 + 2
 	return nFrames * enc.MaxOutBufBytes
 }
 
 // Create AAC Encoder
-func CreateAacEncoder(config *AacEncoderConfig) (enc *AacEncoder, err error) {
+func NewEncoder(config *EncoderConfig) (enc *Encoder, err error) {
 	config = populateEncConfig(config)
 
 	// Validate configuration
@@ -339,7 +333,7 @@ func CreateAacEncoder(config *AacEncoderConfig) (enc *AacEncoder, err error) {
 		return nil, errors.New("metadata mode is not supported yet")
 	}
 
-	enc = &AacEncoder{}
+	enc = &Encoder{}
 
 	var errNo C.AACENC_ERROR
 	if errNo = C.aacEncOpen(&enc.ph, 0, C.uint(config.MaxChannels)); errNo != C.AACENC_OK {
@@ -470,7 +464,7 @@ func CreateAacEncoder(config *AacEncoderConfig) (enc *AacEncoder, err error) {
 	return enc, nil
 }
 
-func (enc *AacEncoder) getInfo() C.AACENC_ERROR {
+func (enc *Encoder) getInfo() C.AACENC_ERROR {
 	info := C.AACENC_InfoStruct{}
 	if errNo := C.aacEncInfo(enc.ph, &info); errNo != C.AACENC_OK {
 		return errNo
@@ -488,9 +482,9 @@ func (enc *AacEncoder) getInfo() C.AACENC_ERROR {
 	return C.AACENC_OK
 }
 
-func populateEncConfig(c *AacEncoderConfig) *AacEncoderConfig {
+func populateEncConfig(c *EncoderConfig) *EncoderConfig {
 	if c == nil {
-		c = &AacEncoderConfig{}
+		c = &EncoderConfig{}
 	}
 	if c.MaxChannels == 0 {
 		c.MaxChannels = defaultMaxChannels

@@ -15,7 +15,7 @@ const (
 // It reads PCM data from the input reader (wavStream) and writes the encoded AAC data to the output writer (writer).
 // The encoding configuration is specified by the config parameter.
 // This function parses the WAV header to extract SampleRate and MaxChannels, overriding the values in config.
-func EncodeFromWav(wavStream io.Reader, writer io.Writer, config *AacEncoderConfig) (totalBytes int, totalFrames int, sampleRate int, err error) {
+func EncodeFromWav(wavStream io.Reader, writer io.Writer, config *EncoderConfig) (totalBytes int, totalFrames int, sampleRate int, err error) {
 	pcmSize, sampleRate, numChannels, bitsPerSample, err := ParseWavHeader(wavStream)
 	if err != nil {
 		return 0, 0, 0, err
@@ -29,7 +29,7 @@ func EncodeFromWav(wavStream io.Reader, writer io.Writer, config *AacEncoderConf
 	// Limit the reader to the data size to avoid reading trailing metadata as audio.
 	wavStream = io.LimitReader(wavStream, int64(pcmSize))
 
-	encoder, err := CreateAacEncoder(config)
+	encoder, err := NewEncoder(config)
 	if err != nil {
 		return 0, 0, 0, err
 	}
@@ -84,57 +84,40 @@ func EncodeFromWav(wavStream io.Reader, writer io.Writer, config *AacEncoderConf
 
 // DecodeToWav decodes an AAC stream (aacStream) to WAV format and writes it to the output writer (writer).
 // Note: This function writes a WAV header.
-func DecodeToWav(aacStream io.Reader, writer io.WriteSeeker, config *AacDecoderConfig) (totalBytes int, totalSamples int, sampleRate int, err error) {
-	decoder, err := CreateAacDecoder(config)
+func DecodeToWav(aacStream io.Reader, writer io.WriteSeeker, config *DecoderConfig) (totalBytes int, totalSamples int, sampleRate int, err error) {
+	decoder, err := NewDecoder(config)
 	if err != nil {
 		return 0, 0, 0, err
 	}
 	defer decoder.Close()
 
 	pcmBuf := make([]byte, decoder.EstimateOutBufBytes())
-	totalFrames := 0
 	chunk := make([]byte, 2048)
-	var residue []byte
 
 	for {
 		n, readErr := aacStream.Read(chunk)
 		if n > 0 {
-			residue = append(residue, chunk[:n]...)
+			decodedN, decErr := decoder.Decode(chunk[:n], pcmBuf)
+			if decErr != nil {
+				return 0, 0, 0, decErr
+			}
 
-			// Try to decode as many frames as possible from residue
-			inBuf := residue
-			for {
-				decodedN, nFrames, rest, decErr := decoder.Decode(inBuf, pcmBuf)
-				if decErr != nil {
-					return 0, 0, 0, decErr
-				}
+			if decodedN == 0 {
+				break
+			}
 
-				if decodedN == 0 {
-					// Not enough data to decode a frame, need more input
-					residue = residue[:copy(residue, rest)]
-					break
-				}
-
-				if totalFrames == 0 {
-					// Write placeholder WAV header
-					headerBuf := make([]byte, WavHeaderSize)
-					if _, err := writer.Write(headerBuf); err != nil {
-						return 0, 0, 0, fmt.Errorf("write placeholder header failed: %w", err)
-					}
-				}
-
-				if _, wErr := writer.Write(pcmBuf[:decodedN]); wErr != nil {
-					return 0, 0, 0, wErr
-				}
-				totalBytes += decodedN
-				totalFrames += nFrames
-				inBuf = rest
-
-				if len(inBuf) == 0 {
-					residue = residue[:0]
-					break
+			if totalBytes == 0 {
+				// Write placeholder WAV header
+				headerBuf := make([]byte, WavHeaderSize)
+				if _, err := writer.Write(headerBuf); err != nil {
+					return 0, 0, 0, fmt.Errorf("write placeholder header failed: %w", err)
 				}
 			}
+
+			if _, wErr := writer.Write(pcmBuf[:decodedN]); wErr != nil {
+				return 0, 0, 0, wErr
+			}
+			totalBytes += decodedN
 		}
 
 		if readErr != nil {
@@ -145,7 +128,7 @@ func DecodeToWav(aacStream io.Reader, writer io.WriteSeeker, config *AacDecoderC
 		}
 	}
 
-	if totalFrames == 0 {
+	if totalBytes == 0 {
 		return 0, 0, 0, errors.New("no audio frames decoded")
 	}
 
@@ -164,7 +147,8 @@ func DecodeToWav(aacStream io.Reader, writer io.WriteSeeker, config *AacDecoderC
 	// Not strictly necessary but good practice.
 	writer.Seek(0, io.SeekEnd)
 
-	return totalBytes + WavHeaderSize, totalFrames * info.FrameLength, info.SampleRate, nil
+	totalSamples = totalBytes / (info.NumChannels * SampleBitDepth / 8)
+	return totalBytes + WavHeaderSize, totalSamples, info.SampleRate, nil
 }
 
 func GenerateWavHeader(pcmSize int, sampleRate int, numChannels int, bitsPerSample int) []byte {

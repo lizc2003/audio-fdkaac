@@ -6,7 +6,7 @@ import (
 
 func TestAacDecoder(t *testing.T) {
 	t.Run("Decoder create and close", func(t *testing.T) {
-		decoder, err := CreateAacDecoder(nil)
+		decoder, err := NewDecoder(nil)
 		if err != nil {
 			t.Fatalf("CreateAccDecoder failed: %v", err)
 		}
@@ -14,17 +14,14 @@ func TestAacDecoder(t *testing.T) {
 			t.Error("decoder.ph should not be nil")
 		}
 
-		err = decoder.Close()
-		if err != nil {
-			t.Errorf("Close failed: %v", err)
-		}
+		decoder.Close()
 		if decoder.ph != nil {
 			t.Error("decoder.ph should be nil after close")
 		}
 	})
 
 	t.Run("Decoder config raw", func(t *testing.T) {
-		decoder, err := CreateAacDecoder(&AacDecoderConfig{
+		decoder, err := NewDecoder(&DecoderConfig{
 			TransportFmt: TtMp4Raw,
 		})
 		if err != nil {
@@ -60,7 +57,7 @@ func TestAacDecoder(t *testing.T) {
 	})
 
 	t.Run("Decoder decode adts", func(t *testing.T) {
-		decoder, err := CreateAacDecoder(&AacDecoderConfig{
+		decoder, err := NewDecoder(&DecoderConfig{
 			TransportFmt: TtMp4Adts,
 		})
 		if err != nil {
@@ -70,7 +67,7 @@ func TestAacDecoder(t *testing.T) {
 
 		outBuf := make([]byte, decoder.EstimateOutBufBytes())
 
-		n, _, _, err := decoder.Decode(AAC0, outBuf)
+		n, err := decoder.Decode(AAC0, outBuf)
 		if err != nil {
 			t.Errorf("Decode failed: %v", err)
 		}
@@ -78,7 +75,7 @@ func TestAacDecoder(t *testing.T) {
 			t.Errorf("expected decoded bytes 4096, got %d", n)
 		}
 
-		n, _, _, err = decoder.Decode(AAC1[0:9], outBuf)
+		n, err = decoder.Decode(AAC1[0:9], outBuf)
 		if err != nil {
 			t.Errorf("expected error nil, got %v", err)
 		}
@@ -86,7 +83,7 @@ func TestAacDecoder(t *testing.T) {
 			t.Errorf("expected decoded bytes 0, got %d", n)
 		}
 
-		n, _, _, err = decoder.Decode(AAC1[9:], outBuf)
+		n, err = decoder.Decode(AAC1[9:], outBuf)
 		if err != nil {
 			t.Errorf("Decode failed: %v", err)
 		}
@@ -94,7 +91,7 @@ func TestAacDecoder(t *testing.T) {
 			t.Errorf("expected decoded bytes 4096, got %d", n)
 		}
 
-		n, _, _, err = decoder.Decode(AAC2[0:9], outBuf)
+		n, err = decoder.Decode(AAC2[0:9], outBuf)
 		if err != nil {
 			t.Errorf("expected error nil, got %v", err)
 		}
@@ -107,7 +104,7 @@ func TestAacDecoder(t *testing.T) {
 			t.Errorf("ClearBuffer failed: %v", err)
 		}
 
-		n, _, _, err = decoder.Decode(AAC2, outBuf)
+		n, err = decoder.Decode(AAC2, outBuf)
 		if err != nil {
 			t.Errorf("Decode failed: %v", err)
 		}
@@ -117,7 +114,7 @@ func TestAacDecoder(t *testing.T) {
 	})
 
 	t.Run("Decoder decode raw", func(t *testing.T) {
-		decoder, err := CreateAacDecoder(&AacDecoderConfig{
+		decoder, err := NewDecoder(&DecoderConfig{
 			TransportFmt: TtMp4Raw,
 		})
 		if err != nil {
@@ -141,7 +138,7 @@ func TestAacDecoder(t *testing.T) {
 
 		outBuf := make([]byte, decoder.EstimateOutBufBytes())
 
-		n, _, _, err := decoder.Decode(AAC0[7:], outBuf)
+		n, err := decoder.Decode(AAC0[7:], outBuf)
 		if err != nil {
 			t.Errorf("Decode failed: %v", err)
 		}
@@ -149,7 +146,7 @@ func TestAacDecoder(t *testing.T) {
 			t.Errorf("expected decoded bytes 4096, got %d", n)
 		}
 
-		n, _, _, err = decoder.Decode(AAC1[7:], outBuf)
+		n, err = decoder.Decode(AAC1[7:], outBuf)
 		if err != nil {
 			t.Errorf("Decode failed: %v", err)
 		}
@@ -157,7 +154,7 @@ func TestAacDecoder(t *testing.T) {
 			t.Errorf("expected decoded bytes 4096, got %d", n)
 		}
 
-		n, _, _, err = decoder.Decode(AAC2[7:], outBuf)
+		n, err = decoder.Decode(AAC2[7:], outBuf)
 		if err != nil {
 			t.Errorf("Decode failed: %v", err)
 		}

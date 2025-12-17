@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	decoder, err := fdkaac.CreateAacDecoder(&fdkaac.AacDecoderConfig{
+	decoder, err := fdkaac.NewDecoder(&fdkaac.DecoderConfig{
 		TransportFmt: fdkaac.TtMp4Adts,
 	})
 	if err != nil {
@@ -25,39 +25,23 @@ func main() {
 	defer aacFile.Close()
 
 	pcmBuf := make([]byte, decoder.EstimateOutBufBytes())
-	totalFrames := 0
 	totalBytes := 0
 	chunk := make([]byte, 2048)
-	var residue []byte
 
 	for {
 		n, readErr := aacFile.Read(chunk)
 		if n > 0 {
-			residue = append(residue, chunk[:n]...)
-
-			inBuf := residue
-			for {
-				decodedN, nFrames, rest, decErr := decoder.Decode(inBuf, pcmBuf)
-				if decErr != nil {
-					fmt.Println(decErr)
-					return
-				}
-
-				if decodedN == 0 {
-					// Not enough data to decode a frame, need more input
-					residue = residue[:copy(residue, rest)]
-					break
-				}
-
-				totalBytes += decodedN
-				totalFrames += nFrames
-				inBuf = rest
-
-				if len(inBuf) == 0 {
-					residue = residue[:0]
-					break
-				}
+			decodedN, decErr := decoder.Decode(chunk[:n], pcmBuf)
+			if decErr != nil {
+				fmt.Println(decErr)
+				return
 			}
+
+			if decodedN == 0 {
+				break
+			}
+
+			totalBytes += decodedN
 		}
 
 		if readErr != nil {
@@ -69,5 +53,5 @@ func main() {
 		}
 	}
 
-	fmt.Printf("Decoded %d bytes of PCM data, totalFrames: %d\n", totalBytes, totalFrames)
+	fmt.Printf("Decoded %d bytes of PCM data\n", totalBytes)
 }

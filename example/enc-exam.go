@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	encoder, err := fdkaac.CreateAacEncoder(&fdkaac.AacEncoderConfig{
+	encoder, err := fdkaac.NewEncoder(&fdkaac.EncoderConfig{
 		TransMux:    fdkaac.TtMp4Adts,
 		SampleRate:  44100,
 		MaxChannels: 2,

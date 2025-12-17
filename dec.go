@@ -93,47 +93,6 @@ func getDecError(errNo C.AAC_DECODER_ERROR) error {
 	return fmt.Errorf("unknown decoder error: %d", errNo)
 }
 
-func getErrNo(err error) int {
-	for i, v := range decErrors {
-		if err == v {
-			return i
-		}
-	}
-	return -1
-}
-
-// IsInitError identify initialization errors. Output buffer is invalid.
-func IsInitError(err error) bool {
-	errNo := getErrNo(err)
-	if errNo < 0 {
-		return false
-	}
-	return errNo >= C.aac_dec_init_error_start && errNo <= C.aac_dec_init_error_end
-}
-
-// IsDecodeError identify decode errors. Output buffer is valid but concealed.
-func IsDecodeError(err error) bool {
-	errNo := getErrNo(err)
-	if errNo < 0 {
-		return false
-	}
-	return errNo >= C.aac_dec_decode_error_start && errNo <= C.aac_dec_decode_error_end
-}
-
-// IsOutputValid identify if the audio output buffer contains valid samples after
-// calling DecodeFrame(). Output buffer is valid but can be concealed.
-func IsOutputValid(err error) bool {
-	errNo := getErrNo(err)
-	switch {
-	case errNo == 0:
-		return true
-	case errNo > 0:
-		return errNo >= C.aac_dec_decode_error_start && errNo <= C.aac_dec_decode_error_end
-	default:
-		return false
-	}
-}
-
 // PcmDualChannelOutputMode defines how the decoder processes two channel signals.
 type PcmDualChannelOutputMode int
 
@@ -191,7 +150,7 @@ const (
 	QmfLowpowerReal
 )
 
-type AacDecoderConfig struct {
+type DecoderConfig struct {
 	// Transport type
 	TransportFmt TransportType
 	// Defines how the decoder processes two channel signals.
@@ -289,31 +248,32 @@ type StreamInfo struct {
 	DrcPresMode int8
 }
 
-type AacDecoder struct {
-	// private handler
-	ph C.HANDLE_AACDECODER
-	// decoder info
-	info *StreamInfo
+type Decoder struct {
+	ph         C.HANDLE_AACDECODER
+	info       *StreamInfo
+	remainData []byte
 }
 
-func (dec *AacDecoder) EstimateOutBufBytes() int {
+func (dec *Decoder) EstimateOutBufBytes() int {
 	// 1 frame: 1024 samples * 8 channels * 2 bytes = 16384 bytes
-	return (1024 * 8 * 2) * 5 // 5 frames
+	return (1024 * 8 * 2) * 10 // 10 frames
 }
 
 // Decode
-func (dec *AacDecoder) Decode(in, out []byte) (n int, nFrames int, rest []byte, err error) {
-	if dec == nil || dec.ph == nil {
-		return 0, 0, nil, errors.New("decoder not initialized")
-	}
-
+func (dec *Decoder) Decode(in, out []byte) (n int, err error) {
 	szIn := len(in)
 	szOut := len(out)
 	if szIn == 0 {
-		return 0, 0, nil, errors.New("input buffer is empty")
+		return 0, errors.New("input buffer is empty")
 	}
 	if szOut < dec.EstimateOutBufBytes() {
-		return 0, 0, nil, errors.New("output buffer size is not enough")
+		return 0, errors.New("output buffer size is not enough")
+	}
+
+	if len(dec.remainData) > 0 {
+		in = append(dec.remainData, in...)
+		szIn = len(in)
+		dec.remainData = nil
 	}
 
 	inPtr := (*C.uchar)(unsafe.Pointer(&in[0]))
@@ -324,46 +284,37 @@ func (dec *AacDecoder) Decode(in, out []byte) (n int, nFrames int, rest []byte, 
 	bytesDecoded := C.uint(0)
 
 	if errNo := C.aacDecoder_DecodeWrapped(dec.ph, inPtr, inLen, outPtr, outLen, &bytesDecoded, &bytesValid); errNo != C.AAC_DEC_OK {
-		return 0, 0, nil, getDecError(errNo)
+		return 0, getDecError(errNo)
 	}
 
 	if bytesValid > 0 {
-		rest = in[szIn-int(bytesValid):]
+		dec.remainData = append(dec.remainData, in[szIn-int(bytesValid):]...)
 	}
 
 	if dec.info == nil {
 		if dec.info, err = getStreamInfo(dec.ph); err != nil {
-			return 0, 0, nil, err
+			return 0, err
 		}
 	}
 
-	n = int(bytesDecoded)
-	return n, n / dec.info.FrameBytes, rest, nil
+	return int(bytesDecoded), nil
 }
 
 // ClearBuffer
-func (dec *AacDecoder) ClearBuffer() error {
-	if dec == nil || dec.ph == nil {
-		return errors.New("decoder not initialized")
-	}
+func (dec *Decoder) ClearBuffer() error {
 	return getDecError(C.aacDecoder_SetParam(dec.ph, C.AAC_TPDEC_CLEAR_BUFFER, C.int(1)))
 }
 
 // Close
-func (dec *AacDecoder) Close() error {
-	if dec == nil || dec.ph == nil {
-		return nil
+func (dec *Decoder) Close() {
+	if dec.ph != nil {
+		C.aacDecoder_Close(dec.ph)
+		dec.ph = nil
 	}
-	C.aacDecoder_Close(dec.ph)
-	dec.ph = nil
-	return nil
 }
 
 // ConfigRaw
-func (dec *AacDecoder) ConfigRaw(conf []byte) error {
-	if dec == nil || dec.ph == nil {
-		return errors.New("decoder not initialized")
-	}
+func (dec *Decoder) ConfigRaw(conf []byte) error {
 	if len(conf) == 0 {
 		return errors.New("raw config should not be empty")
 	}
@@ -377,10 +328,7 @@ func (dec *AacDecoder) ConfigRaw(conf []byte) error {
 }
 
 // GetStreamInfo
-func (dec *AacDecoder) GetStreamInfo() (*StreamInfo, error) {
-	if dec == nil || dec.ph == nil {
-		return nil, errors.New("decoder not initialized")
-	}
+func (dec *Decoder) GetStreamInfo() (*StreamInfo, error) {
 	if dec.info == nil {
 		return nil, errors.New("decoder not decoded first frame")
 	}
@@ -388,17 +336,11 @@ func (dec *AacDecoder) GetStreamInfo() (*StreamInfo, error) {
 }
 
 // GetStreamInfo
-func (dec *AacDecoder) GetRawStreamInfo() (*StreamInfo, error) {
-	if dec == nil || dec.ph == nil {
-		return nil, errors.New("decoder not initialized")
-	}
+func (dec *Decoder) GetRawStreamInfo() (*StreamInfo, error) {
 	return getStreamInfo(dec.ph)
 }
 
 func getStreamInfo(ph C.HANDLE_AACDECODER) (*StreamInfo, error) {
-	if ph == nil {
-		return nil, errors.New("decoder not initialized")
-	}
 	originInfo := C.aacDecoder_GetStreamInfo(ph)
 	if originInfo == nil {
 		return nil, errors.New("get stream info failed")
@@ -435,10 +377,10 @@ func getStreamInfo(ph C.HANDLE_AACDECODER) (*StreamInfo, error) {
 }
 
 // CreateAccDecoder
-func CreateAacDecoder(config *AacDecoderConfig) (*AacDecoder, error) {
+func NewDecoder(config *DecoderConfig) (*Decoder, error) {
 	config = populateDecConfig(config)
 
-	dec := &AacDecoder{}
+	dec := &Decoder{}
 	dec.ph = C.aacDecoder_Open(C.TRANSPORT_TYPE(config.TransportFmt), 1)
 	if dec.ph == nil {
 		return nil, errors.New("create acc decoder failed")
@@ -569,9 +511,9 @@ func CreateAacDecoder(config *AacDecoderConfig) (*AacDecoder, error) {
 	return dec, nil
 }
 
-func populateDecConfig(c *AacDecoderConfig) *AacDecoderConfig {
+func populateDecConfig(c *DecoderConfig) *DecoderConfig {
 	if c == nil {
-		c = &AacDecoderConfig{}
+		c = &DecoderConfig{}
 	}
 
 	return c

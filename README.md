@@ -31,7 +31,7 @@ import (
 )
 
 func main() {
-	decoder, err := fdkaac.CreateAacDecoder(&fdkaac.AacDecoderConfig{
+	decoder, err := fdkaac.NewDecoder(&fdkaac.DecoderConfig{
 		TransportFmt: fdkaac.TtMp4Adts,
 	})
 	if err != nil {
@@ -45,7 +45,7 @@ func main() {
     }
 	outBuf := make([]byte, 4096)
 
-	n, _, _, err := decoder.Decode(inBuf, outBuf)
+	n, err := decoder.Decode(inBuf, outBuf)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -66,7 +66,7 @@ import (
 )
 
 func main() {
-	encoder, err := fdkaac.CreateAacEncoder(&fdkaac.AacEncoderConfig{
+	encoder, err := fdkaac.NewEncoder(&fdkaac.EncoderConfig{
 		TransMux:    fdkaac.TtMp4Adts,
 		SampleRate:  44100,
 		MaxChannels: 2,
