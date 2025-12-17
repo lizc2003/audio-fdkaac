@@ -171,11 +171,9 @@ type EncInfo struct {
 
 // AAC Encoder
 type Encoder struct {
-	// private handler
 	ph C.HANDLE_AACENCODER
-	// info
 	EncInfo
-	prevDataBuffer []byte
+	frameData []byte
 }
 
 // Encode
@@ -194,22 +192,22 @@ func (enc *Encoder) Encode(in, out []byte) (n int, nFrames int, err error) {
 	var nWrite C.int
 	var inPtr, outPtr unsafe.Pointer
 
-	prevLen := len(enc.prevDataBuffer)
-	if prevLen > 0 {
-		if (prevLen + szIn) >= frameSize {
-			nFill := frameSize - prevLen
-			enc.prevDataBuffer = append(enc.prevDataBuffer, in[:nFill]...)
+	currentLen := len(enc.frameData)
+	if currentLen > 0 {
+		if (currentLen + szIn) >= frameSize {
+			nFill := frameSize - currentLen
+			enc.frameData = append(enc.frameData, in[:nFill]...)
 
-			inPtr = unsafe.Pointer(&enc.prevDataBuffer[0])
+			inPtr = unsafe.Pointer(&enc.frameData[0])
 			outPtr = unsafe.Pointer(&out[0])
 			errNo := C.aacEncEncodeWrapped(enc.ph,
 				inPtr, C.int(frameSize), C.int(SampleBitDepth),
 				outPtr, C.int(szOut), &nWrite)
 			if errNo != 0 {
-				enc.prevDataBuffer = enc.prevDataBuffer[:prevLen]
+				enc.frameData = enc.frameData[:currentLen]
 				return 0, 0, getEncError(errNo)
 			}
-			enc.prevDataBuffer = enc.prevDataBuffer[:0]
+			enc.frameData = enc.frameData[:0]
 
 			n = int(nWrite)
 			nFrames = 1
@@ -218,13 +216,13 @@ func (enc *Encoder) Encode(in, out []byte) (n int, nFrames int, err error) {
 			szIn = len(in)
 			szOut = len(out)
 		} else {
-			enc.prevDataBuffer = append(enc.prevDataBuffer, in...)
+			enc.frameData = append(enc.frameData, in...)
 			return 0, 0, nil
 		}
 	}
 
 	if szIn < frameSize {
-		enc.prevDataBuffer = append(enc.prevDataBuffer, in...)
+		enc.frameData = append(enc.frameData, in...)
 		return n, nFrames, nil
 	}
 
@@ -247,7 +245,7 @@ func (enc *Encoder) Encode(in, out []byte) (n int, nFrames int, err error) {
 	}
 
 	if szIn > 0 {
-		enc.prevDataBuffer = append(enc.prevDataBuffer, in...)
+		enc.frameData = append(enc.frameData, in...)
 	}
 	return n, nFrames, nil
 }
@@ -262,16 +260,16 @@ func (enc *Encoder) Flush(out []byte) (n int, nFrames int, err error) {
 	var nWrite C.int
 	var outPtr unsafe.Pointer
 
-	if len(enc.prevDataBuffer) > 0 {
-		inPtr := unsafe.Pointer(&enc.prevDataBuffer[0])
+	if len(enc.frameData) > 0 {
+		inPtr := unsafe.Pointer(&enc.frameData[0])
 		outPtr = unsafe.Pointer(&out[0])
 		errNo := C.aacEncEncodeWrapped(enc.ph,
-			inPtr, C.int(len(enc.prevDataBuffer)), C.int(SampleBitDepth),
+			inPtr, C.int(len(enc.frameData)), C.int(SampleBitDepth),
 			outPtr, C.int(szOut), &nWrite)
 		if errNo != 0 {
 			return 0, 0, getEncError(errNo)
 		}
-		enc.prevDataBuffer = enc.prevDataBuffer[:0]
+		enc.frameData = enc.frameData[:0]
 
 		n = int(nWrite)
 		if n > 0 {
@@ -460,7 +458,7 @@ func NewEncoder(config *EncoderConfig) (enc *Encoder, err error) {
 		return nil, getEncError(errNo)
 	}
 
-	enc.prevDataBuffer = make([]byte, 0, enc.FrameBytes)
+	enc.frameData = make([]byte, 0, enc.FrameBytes)
 	return enc, nil
 }
 
