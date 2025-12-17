@@ -21,3 +21,12 @@
 go.work
 **/.idea
 **/.vscode
+
+# Example binaries
+dec-exam
+enc-exam
+wav-exam
+
+# Output files
+output.aac
+output.wav

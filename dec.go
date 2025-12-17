@@ -166,7 +166,7 @@ type DecoderConfig struct {
 	// Signal level limiting attack time in ms.
 	PcmLimiterAttackTime int
 	// Signal level limiting release time in ms.
-	PcmLimiterReleasTime int
+	PcmLimiterReleaseTime int
 	// Minimum number of PCM output channels.
 	PcmMinOutputChannels int
 	// Maximum number of PCM output channels.
@@ -299,9 +299,9 @@ func NewDecoder(config *DecoderConfig) (*Decoder, error) {
 			return nil, getDecError(errNo)
 		}
 	}
-	if config.PcmLimiterReleasTime > 0 {
+	if config.PcmLimiterReleaseTime > 0 {
 		if errNo = C.aacDecoder_SetParam(dec.ph, C.AAC_PCM_LIMITER_RELEAS_TIME,
-			C.int(config.PcmLimiterReleasTime)); errNo != C.AAC_DEC_OK {
+			C.int(config.PcmLimiterReleaseTime)); errNo != C.AAC_DEC_OK {
 			return nil, getDecError(errNo)
 		}
 	}

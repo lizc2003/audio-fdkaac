@@ -122,7 +122,7 @@ type EncoderConfig struct {
 	// Controls the use of the afterburner feature.
 	IsAfterBurner bool
 	// Core encoder audio bandwidth.
-	Bandwith int
+	Bandwidth int
 	// Peak bitrate configuration parameter to adjust maximum bits per audio frame.
 	PeakBitrate int
 	// Transport type to be used.
@@ -403,9 +403,9 @@ func NewEncoder(config *EncoderConfig) (enc *Encoder, err error) {
 			return nil, getEncError(errNo)
 		}
 	}
-	if config.Bandwith > 0 {
+	if config.Bandwidth > 0 {
 		if errNo = C.aacEncoder_SetParam(enc.ph, C.AACENC_BANDWIDTH,
-			C.uint(config.Bandwith)); errNo != C.AACENC_OK {
+			C.uint(config.Bandwidth)); errNo != C.AACENC_OK {
 			return nil, getEncError(errNo)
 		}
 	}

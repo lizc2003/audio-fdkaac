@@ -79,7 +79,7 @@ func TestAacEncoderAdvance(t *testing.T) {
 	}
 
 	chunkSizeStart := 1
-	loop := 0 + 10
+	loop := 10
 	waitGroup := sync.WaitGroup{}
 	waitGroup.Add(loop)
 
