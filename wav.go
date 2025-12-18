@@ -102,22 +102,20 @@ func DecodeToWav(aacStream io.Reader, writer io.WriteSeeker, config *DecoderConf
 				return 0, 0, 0, decErr
 			}
 
-			if decodedN == 0 {
-				break
-			}
-
-			if totalBytes == 0 {
-				// Write placeholder WAV header
-				headerBuf := make([]byte, WavHeaderSize)
-				if _, err := writer.Write(headerBuf); err != nil {
-					return 0, 0, 0, fmt.Errorf("write placeholder header failed: %w", err)
+			if decodedN > 0 {
+				if totalBytes == 0 {
+					// Write placeholder WAV header
+					headerBuf := make([]byte, WavHeaderSize)
+					if _, err := writer.Write(headerBuf); err != nil {
+						return 0, 0, 0, fmt.Errorf("write placeholder header failed: %w", err)
+					}
 				}
-			}
 
-			if _, wErr := writer.Write(pcmBuf[:decodedN]); wErr != nil {
-				return 0, 0, 0, wErr
+				if _, wErr := writer.Write(pcmBuf[:decodedN]); wErr != nil {
+					return 0, 0, 0, wErr
+				}
+				totalBytes += decodedN
 			}
-			totalBytes += decodedN
 		}
 
 		if readErr != nil {

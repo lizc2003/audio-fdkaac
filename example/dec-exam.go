@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/lizc2003/audio-fdkaac"
 	"io"
 	"os"
+
+	fdkaac "github.com/lizc2003/audio-fdkaac"
 )
 
 func main() {
@@ -37,11 +38,9 @@ func main() {
 				return
 			}
 
-			if decodedN == 0 {
-				break
+			if decodedN > 0 {
+				totalBytes += decodedN
 			}
-
-			totalBytes += decodedN
 		}
 
 		if readErr != nil {
